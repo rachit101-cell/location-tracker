@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TRACKER // DASHBOARD</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg'><text y='14' font-size='14'>📡</text></svg>" />
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --green:   #00ff88;
+      --dim:     #00994d;
+      --red:     #ff3355;
+      --yellow:  #ffcc00;
+      --blue:    #00aaff;
+      --bg:      #030a05;
+      --surface: #07130a;
+      --border:  #0d2e14;
+      --text:    #c8ffd4;
+      --muted:   #2a5e35;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Share Tech Mono", monospace;
+      min-height: 100vh;
+    }
+    body::before {
+      content: "";
+      position: fixed; inset: 0;
+      background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.07) 2px, rgba(0,0,0,0.07) 4px);
+      pointer-events: none;
+      z-index: 999;
+    }
+
+    /* Header */
+    header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 18px 32px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+      position: sticky; top: 0; z-index: 10;
+    }
+    .logo {
+      font-family: "Orbitron", sans-serif;
+      font-weight: 900; font-size: 1.1rem;
+      letter-spacing: 0.3em;
+      color: var(--green);
+      text-shadow: 0 0 20px var(--green);
+    }
+    .logo span { color: var(--muted); }
+    .header-right { display: flex; align-items: center; gap: 24px; }
+    .live-dot {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 0.72rem; letter-spacing: 0.15em; color: var(--dim);
+    }
+    .live-dot::before {
+      content: ""; width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--green); box-shadow: 0 0 8px var(--green);
+      animation: pulse 1.4s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%,100% { opacity:1; transform:scale(1); }
+      50%      { opacity:0.4; transform:scale(0.8); }
+    }
+    #clock { font-size: 0.8rem; color: var(--dim); letter-spacing: 0.1em; }
+
+    /* Stats */
+    .stats {
+      display: grid; grid-template-columns: repeat(4,1fr);
+      gap: 1px; background: var(--border);
+      border-bottom: 1px solid var(--border);
+    }
+    .stat { background: var(--surface); padding: 20px 28px; display: flex; flex-direction: column; gap: 6px; }
+    .stat-label { font-size: 0.65rem; letter-spacing: 0.25em; color: var(--muted); text-transform: uppercase; }
+    .stat-value {
+      font-family: "Orbitron", sans-serif;
+      font-size: 1.8rem; font-weight: 700;
+      color: var(--green); text-shadow: 0 0 12px rgba(0,255,136,0.4);
+    }
+    .stat-value.blue   { color: var(--blue);   text-shadow: 0 0 12px rgba(0,170,255,0.4); }
+    .stat-value.yellow { color: var(--yellow); text-shadow: 0 0 12px rgba(255,204,0,0.4); }
+
+    /* Toolbar */
+    .toolbar {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 32px; border-bottom: 1px solid var(--border);
+    }
+    .toolbar-left { font-size: 0.72rem; color: var(--muted); letter-spacing: 0.1em; }
+    #refresh-countdown { color: var(--dim); }
+    .btn {
+      font-family: "Share Tech Mono", monospace;
+      font-size: 0.72rem; letter-spacing: 0.15em;
+      padding: 7px 16px;
+      border: 1px solid var(--border);
+      background: transparent; color: var(--dim);
+      cursor: pointer; transition: all 0.15s; text-transform: uppercase;
+    }
+    .btn:hover { border-color: var(--green); color: var(--green); box-shadow: 0 0 8px rgba(0,255,136,0.2); }
+    .btn.danger:hover { border-color: var(--red); color: var(--red); box-shadow: 0 0 8px rgba(255,51,85,0.2); }
+    .btn-group { display: flex; gap: 8px; }
+
+    /* Table */
+    .table-wrap { padding: 24px 32px; overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+    thead tr { border-bottom: 1px solid var(--border); }
+    th { padding: 10px 14px; text-align: left; font-size: 0.62rem; letter-spacing: 0.2em; color: var(--muted); text-transform: uppercase; white-space: nowrap; }
+    tbody tr { border-bottom: 1px solid rgba(13,46,20,0.5); transition: background 0.1s; }
+    tbody tr:hover { background: rgba(0,255,136,0.03); }
+    td { padding: 12px 14px; white-space: nowrap; }
+    td.coords { color: var(--green); }
+    td.muted   { color: var(--muted); }
+
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 2px; font-size: 0.65rem; letter-spacing: 0.15em; font-weight: 700; }
+    .badge.GPS   { background: rgba(0,255,136,0.12); color: var(--green); border: 1px solid rgba(0,255,136,0.3); }
+    .badge.IP    { background: rgba(0,170,255,0.12); color: var(--blue);  border: 1px solid rgba(0,170,255,0.3); }
+    .badge.ERROR { background: rgba(255,51,85,0.12);  color: var(--red);   border: 1px solid rgba(255,51,85,0.3); }
+
+    .map-link { color: var(--dim); text-decoration: none; font-size: 0.72rem; border-bottom: 1px solid transparent; transition: all 0.15s; }
+    .map-link:hover { color: var(--green); border-bottom-color: var(--green); }
+
+    .empty { text-align: center; padding: 80px 0; color: var(--muted); }
+    .empty-icon { font-size: 3rem; margin-bottom: 16px; opacity: 0.3; }
+    .empty p { font-size: 0.8rem; letter-spacing: 0.15em; }
+
+    @keyframes flash {
+      from { background: rgba(0,255,136,0.1); }
+      to   { background: transparent; }
+    }
+    .new-row { animation: flash 1.5s ease-out forwards; }
+
+    footer {
+      padding: 16px 32px; border-top: 1px solid var(--border);
+      font-size: 0.65rem; color: var(--muted); letter-spacing: 0.12em;
+      display: flex; justify-content: space-between;
+    }
+
+    @media (max-width: 768px) {
+      header { padding: 14px 16px; }
+      .stats { grid-template-columns: repeat(2,1fr); }
+      .toolbar { padding: 12px 16px; flex-direction: column; gap: 10px; align-items: flex-start; }
+      .table-wrap { padding: 12px 8px; }
+      footer { padding: 12px 16px; flex-direction: column; gap: 6px; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">TRACK<span>//</span>SYS</div>
+  <div class="header-right">
+    <div class="live-dot">LIVE</div>
+    <div id="clock">--:--:--</div>
+  </div>
+</header>
+
+<div class="stats">
+  <div class="stat">
+    <div class="stat-label">Total Hits</div>
+    <div class="stat-value" id="s-total">—</div>
+  </div>
+  <div class="stat">
+    <div class="stat-label">GPS Allowed</div>
+    <div class="stat-value" id="s-gps">—</div>
+  </div>
+  <div class="stat">
+    <div class="stat-label">IP Fallback</div>
+    <div class="stat-value blue" id="s-ip">—</div>
+  </div>
+  <div class="stat">
+    <div class="stat-label">Latest Source</div>
+    <div class="stat-value yellow" id="s-latest">—</div>
+  </div>
+</div>
+
+<div class="toolbar">
+  <div class="toolbar-left">AUTO-REFRESH IN <span id="refresh-countdown">10</span>s</div>
+  <div class="btn-group">
+    <button class="btn" onclick="load()">↻ REFRESH</button>
+    <button class="btn danger" onclick="clearAll()">✕ CLEAR ALL</button>
+  </div>
+</div>
+
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>#</th><th>Time (IST)</th><th>Source</th><th>Coordinates</th>
+        <th>City</th><th>Region</th><th>Country</th>
+        <th>ISP</th><th>IP Address</th><th>Accuracy</th><th>Map</th>
+      </tr>
+    </thead>
+    <tbody id="tbody">
+      <tr><td colspan="11"><div class="empty"><div class="empty-icon">📡</div><p>AWAITING SIGNAL...</p></div></td></tr>
+    </tbody>
+  </table>
+</div>
+
+<footer>
+  <span>TRACKSYS v2.0 // VERCEL + SUPABASE</span>
+  <span id="last-updated">LAST UPDATED: —</span>
+</footer>
+
+<script>
+  var prevIds = new Set();
+  var countdown = 10;
+  var countdownTimer;
+
+  function tickClock() {
+    document.getElementById("clock").textContent =
+      new Date().toLocaleTimeString("en-IN", { hour12: false });
+  }
+  setInterval(tickClock, 1000); tickClock();
+
+  function resetCountdown() {
+    clearInterval(countdownTimer);
+    countdown = 10;
+    countdownTimer = setInterval(function () {
+      countdown--;
+      document.getElementById("refresh-countdown").textContent = countdown;
+      if (countdown <= 0) load();
+    }, 1000);
+  }
+
+  function fmt(iso) {
+    if (!iso) return "—";
+    return new Date(iso).toLocaleString("en-IN", {
+      timeZone: "Asia/Kolkata", hour12: false
+    });
+  }
+
+  function load() {
+    resetCountdown();
+    fetch("/api/locations")
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        var gps = data.filter(function (d) { return d.source === "GPS"; }).length;
+        var ip  = data.filter(function (d) { return d.source === "IP"; }).length;
+
+        document.getElementById("s-total").textContent  = data.length || "0";
+        document.getElementById("s-gps").textContent    = gps;
+        document.getElementById("s-ip").textContent     = ip;
+        document.getElementById("s-latest").textContent = data[0] ? data[0].source : "—";
+        document.getElementById("last-updated").textContent =
+          "LAST UPDATED: " + new Date().toLocaleTimeString("en-IN", { hour12: false });
+
+        var tbody = document.getElementById("tbody");
+
+        if (!data.length) {
+          tbody.innerHTML = '<tr><td colspan="11"><div class="empty"><div class="empty-icon">📡</div><p>AWAITING SIGNAL...</p></div></td></tr>';
+          prevIds = new Set();
+          return;
+        }
+
+        tbody.innerHTML = data.map(function (d, i) {
+          var isNew   = !prevIds.has(d.id);
+          var coords  = (d.lat != null && d.lng != null)
+                          ? d.lat.toFixed(5) + ", " + d.lng.toFixed(5) : "—";
+          var mapUrl  = d.maps || (d.lat && d.lng
+                          ? "https://maps.google.com/?q=" + d.lat + "," + d.lng : null);
+
+          return '<tr class="' + (isNew ? "new-row" : "") + '">' +
+            '<td class="muted">' + (i + 1) + '</td>' +
+            '<td class="muted" style="font-size:.7rem">' + fmt(d.created_at || d.time) + '</td>' +
+            '<td><span class="badge ' + d.source + '">' + d.source + '</span></td>' +
+            '<td class="coords">' + coords + '</td>' +
+            '<td>' + (d.city    || '<span class="muted">—</span>') + '</td>' +
+            '<td>' + (d.region  || '<span class="muted">—</span>') + '</td>' +
+            '<td>' + (d.country || '<span class="muted">—</span>') + '</td>' +
+            '<td style="max-width:150px;overflow:hidden;text-overflow:ellipsis">' + (d.isp || '<span class="muted">—</span>') + '</td>' +
+            '<td class="muted">' + (d.ip || '—') + '</td>' +
+            '<td class="muted">' + (d.accuracy ? d.accuracy + " m" : "—") + '</td>' +
+            '<td>' + (mapUrl
+              ? '<a class="map-link" href="' + mapUrl + '" target="_blank">↗ OPEN</a>'
+              : '<span class="muted">—</span>') + '</td>' +
+          '</tr>';
+        }).join("");
+
+        prevIds = new Set(data.map(function (d) { return d.id; }));
+      })
+      .catch(function () {
+        document.getElementById("s-total").textContent = "ERR";
+      });
+  }
+
+  function clearAll() {
+    if (!confirm("Delete all location entries?")) return;
+    fetch("/api/locations", { method: "DELETE" }).then(load);
+  }
+
+  load();
+</script>
+</body>
+</html>
